@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+astropy
+healpy
+ligo.skymap
+scikit-learn

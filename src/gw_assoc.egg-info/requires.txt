@@ -1,7 +1,7 @@
-numpy
-scipy
-matplotlib
-astropy
-healpy
-ligo.skymap
-scikit-learn
+numpy>=1.25
+scipy>=1.11
+matplotlib>=3.8
+astropy>=6.0
+healpy>=1.16
+ligo.skymap>=1.0.6
+h5py>=3.10

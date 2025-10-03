@@ -1,8 +1,14 @@
 README.md
 pyproject.toml
+setup.cfg
 src/gw_assoc/__init__.py
 src/gw_assoc/association.py
 src/gw_assoc/cli.py
+src/gw_assoc/density.py
+src/gw_assoc/fov.py
+src/gw_assoc/ingest.py
+src/gw_assoc/plots.py
+src/gw_assoc/stats.py
 src/gw_assoc.egg-info/PKG-INFO
 src/gw_assoc.egg-info/SOURCES.txt
 src/gw_assoc.egg-info/dependency_links.txt

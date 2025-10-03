@@ -1,30 +1,4 @@
-[project]
-name = "gw-assoc"
-version = "0.1.0"
-description = "Tools to evaluate gravitational-wave and electromagnetic transient associations"
-authors = [
-  { name = "Kaitlyn Pak", email = "kaitlynjpak@gmail.com" }
-]
-readme = "README.md"
-license = { text = "MIT" }
-requires-python = ">=3.9"
-
-dependencies = [
-  "numpy",
-  "scipy",
-  "matplotlib",
-  "astropy",
-  "healpy",
-  "ligo.skymap",
-  "scikit-learn",
-]
-
-[project.scripts]
-gw-assoc = "gw_assoc.cli:main"
-
+# pyproject.toml
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]

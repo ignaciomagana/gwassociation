@@ -26,3 +26,8 @@ src/gw_assoc/io/transient.py
 src/gw_assoc/plotting/__init__.py
 src/gw_assoc/plotting/distributions.py
 src/gw_assoc/plotting/skymap.py
+tests/test_IOmega_point.py
+tests/test_IdL_synthetic.py
+tests/test_distance_norm.py
+tests/test_end_to_end_parity.py
+tests/test_prior_dl2.py

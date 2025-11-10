@@ -388,9 +388,6 @@ GW skymaps can be downloaded from:
 - GraceDB: https://gracedb.ligo.org/superevents/
 - LIGO-Virgo-KAGRA public alerts
 
-## Contributing
-
-Contributions are welcome! Please submit pull requests or open issues on GitHub.
 
 ## License
 

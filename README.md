@@ -350,9 +350,9 @@ If you use this framework in your research, please cite:
 
 ```bibtex
 @software{gw_assoc,
-  author = {Your Name},
+  author = {Iganacio Magana, Kaitlyn Pak},
   title = {GW-EM Association Framework},
-  year = {2024},
+  year = {2025},
   url = {https://github.com/ignaciomagana/gw-assoc},
   version = {0.2.0}
 }

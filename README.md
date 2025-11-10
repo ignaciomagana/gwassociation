@@ -134,6 +134,511 @@ This includes:
 - `black>=20.8b1` - Code formatting
 - `flake8>=3.8.0` - Code linting
 
+## How to Use with Real Inputs
+
+This section provides step-by-step instructions for using the framework with real GW events and EM transients from actual observations.
+
+### Getting Real GW Skymaps
+
+#### From GraceDB (Public Events)
+
+1. **Visit GraceDB:**
+   - Public events: https://gracedb.ligo.org/superevents/public/O4/
+   - Browse events or search for a specific event (e.g., `S250818k`)
+
+2. **Download the Skymap:**
+   - Click on an event to view details
+   - Download the `bayestar.fits.gz` or `bilby.fits.gz` file
+   - These are 3D skymaps with distance information (preferred)
+   - Alternatively, 2D skymaps (`*.fits`) are also supported
+
+3. **Example Event:**
+   ```bash
+   # Download S250818k skymap
+   wget https://gracedb.ligo.org/api/superevents/S250818k/files/bayestar.fits.gz
+   ```
+
+#### From LIGO-Virgo-KAGRA Alerts
+
+- **GCN Circulars**: Check GCN notices for public alerts
+- **Public Data Releases**: Download from official data releases
+- **API Access**: Use `ligo-gracedb` Python package (requires authentication for private events)
+
+### Preparing EM Transient Data
+
+#### Option 1: Python Dictionary
+
+The simplest way is to create a dictionary with transient information:
+
+```python
+transient_info = {
+    "name": "AT2024abc",           # Transient name (optional)
+    "ra": 192.42625,                # Right ascension in degrees
+    "dec": 34.82472,                # Declination in degrees
+    "z": 0.438,                     # Redshift (optional but recommended)
+    "z_err": 0.005,                 # Redshift uncertainty (optional)
+    "time": 1242442967.447,         # Detection time (GPS seconds)
+    "gw_time": 1242442965.0,        # GW event time (GPS, optional)
+    "magnitude": 18.5,              # Apparent magnitude (optional)
+    "filter_band": "r"              # Filter band (optional)
+}
+```
+
+**Time Formats:**
+- **GPS time**: Seconds since GPS epoch (recommended)
+- **MJD**: Modified Julian Date (will be converted automatically)
+- If `gw_time` is not provided, it will be estimated from the transient time
+
+#### Option 2: JSON File
+
+Create a JSON file with transient data:
+
+```json
+{
+  "name": "AT2024abc",
+  "ra": 192.42625,
+  "dec": 34.82472,
+  "z": 0.438,
+  "z_err": 0.005,
+  "time": 1242442967.447,
+  "gw_time": 1242442965.0,
+  "magnitude": 18.5,
+  "filter_band": "r"
+}
+```
+
+Load and use:
+```python
+import json
+from gw_assoc import Association
+
+# Load transient data
+with open('transient.json', 'r') as f:
+    transient_info = json.load(f)
+
+# Create association
+assoc = Association("S250818k_bayestar.fits.gz", transient_info)
+results = assoc.compute_odds()
+```
+
+#### Option 3: CSV File
+
+Create a CSV file with multiple transients:
+
+```csv
+name,ra,dec,z,z_err,time,magnitude,filter_band
+AT2024abc,192.42625,34.82472,0.438,0.005,1242442967.447,18.5,r
+AT2024def,192.43000,34.82000,0.440,0.006,1242442970.0,19.2,g
+AT2024ghi,192.42000,34.83000,,,1242442968.0,17.8,i
+```
+
+Load and process:
+```python
+from gw_assoc import Association
+from gw_assoc.ingest import ingest_transient_list
+
+# Load transient list
+candidates = ingest_transient_list('transients.csv')
+
+# Create association (GW time from skymap or provided)
+assoc = Association("S250818k_bayestar.fits.gz", {"gw_time": 1242442965.0})
+
+# Rank all candidates
+rankings = assoc.rank_candidates(candidates)
+
+# Display results
+for i, ranking in enumerate(rankings):
+    print(f"{i+1}. {ranking['candidate'].name}: "
+          f"P(Associated) = {ranking['probability']:.1%}")
+```
+
+### Complete Workflow Examples
+
+#### Example 1: Single Transient Analysis
+
+**Scenario:** You have a single EM transient candidate and want to check if it's associated with a GW event.
+
+```python
+from gw_assoc import Association
+
+# 1. Prepare GW skymap and transient data
+skymap_file = "S250818k_bayestar.fits.gz"
+transient_info = {
+    "name": "AT2024abc",
+    "ra": 192.42625,      # From your observations
+    "dec": 34.82472,      # From your observations
+    "z": 0.438,           # From spectroscopy
+    "z_err": 0.005,       # Measurement uncertainty
+    "time": 1242442967.447,  # Detection time (GPS)
+    "gw_time": 1242442965.0  # From GraceDB event page
+}
+
+# 2. Create association
+assoc = Association(skymap_file, transient_info)
+
+# 3. Compute odds (adjust parameters as needed)
+results = assoc.compute_odds(
+    em_model='kilonova',          # or 'grb', 'afterglow'
+    prior_odds=1.0,               # BNS = 1.0, NSBH = 0.1, BBH = 0.01
+    chance_coincidence_rate=1e-4, # Expected false alarm rate
+    H0_uncertainty=7.0            # km/s/Mpc
+)
+
+# 4. Display results
+print(f"Transient: {transient_info['name']}")
+print(f"Position: RA={transient_info['ra']}°, Dec={transient_info['dec']}°")
+print(f"Redshift: z={transient_info['z']} ± {transient_info['z_err']}")
+print(f"\nOverlap Integrals:")
+print(f"  Spatial (I_Ω):  {results['I_omega']:.3e}")
+print(f"  Distance (I_DL): {results['I_dl']:.3e}")
+print(f"  Temporal (I_t):  {results['I_t']:.3e}")
+print(f"\nStatistics:")
+print(f"  Bayes Factor:    {results['bayes_factor']:.3e}")
+print(f"  Posterior Odds:  {results['posterior_odds']:.3e}")
+print(f"  Log₁₀ Odds:      {results['log_posterior_odds']:.2f}")
+print(f"  P(Associated):   {results['confidence']:.1%}")
+print(f"\nDecision: {'✓ ASSOCIATED' if results['associated'] else '✗ NOT ASSOCIATED'}")
+
+# 5. Generate plots
+assoc.plot_skymap("association_skymap.png")
+print(f"\nSaved skymap plot: association_skymap.png")
+```
+
+#### Example 2: Multiple Candidates Ranking
+
+**Scenario:** You have multiple EM transient candidates and want to rank them by association probability.
+
+```python
+from gw_assoc import Association
+
+# 1. Prepare GW skymap
+skymap_file = "S250818k_bayestar.fits.gz"
+gw_time = 1242442965.0  # From GraceDB
+
+# 2. Prepare candidate list
+candidates = [
+    {
+        "name": "AT2024abc",
+        "ra": 192.42625,
+        "dec": 34.82472,
+        "z": 0.438,
+        "z_err": 0.005,
+        "time": 1242442967.447,
+        "magnitude": 18.5
+    },
+    {
+        "name": "AT2024def",
+        "ra": 192.43000,
+        "dec": 34.82000,
+        "z": 0.440,
+        "z_err": 0.006,
+        "time": 1242442970.0,
+        "magnitude": 19.2
+    },
+    {
+        "name": "AT2024ghi",
+        "ra": 192.42000,
+        "dec": 34.83000,
+        "z": None,  # No redshift available
+        "time": 1242442968.0,
+        "magnitude": 17.8
+    }
+]
+
+# 3. Create association
+assoc = Association(skymap_file, {"gw_time": gw_time})
+
+# 4. Rank candidates
+rankings = assoc.rank_candidates(candidates)
+
+# 5. Display rankings
+print("Candidate Rankings:")
+print("-" * 80)
+print(f"{'Rank':<6} {'Name':<12} {'RA':<10} {'Dec':<10} {'z':<8} {'P(Assoc)':<12} {'Decision'}")
+print("-" * 80)
+
+for i, ranking in enumerate(rankings):
+    cand = ranking['candidate']
+    prob = ranking['probability']
+    decision = "✓ ASSOC" if prob > 0.5 else "✗ NOT ASSOC"
+    z_str = f"{cand.z:.3f}" if cand.z else "N/A"
+    
+    print(f"{i+1:<6} {cand.name:<12} {cand.ra:<10.2f} {cand.dec:<10.2f} "
+          f"{z_str:<8} {prob:<12.1%} {decision}")
+
+# 6. Get top candidate for follow-up
+top_candidate = rankings[0]
+print(f"\nTop candidate: {top_candidate['candidate'].name}")
+print(f"  P(Associated) = {top_candidate['probability']:.1%}")
+print(f"  Posterior Odds = {top_candidate['odds']:.3e}")
+```
+
+#### Example 3: Command-Line Interface
+
+**Scenario:** Quick analysis from the command line.
+
+```bash
+# Basic usage
+gw-assoc \
+  --gw-file S250818k_bayestar.fits.gz \
+  --ra 192.42625 \
+  --dec 34.82472 \
+  --z 0.438 \
+  --z-err 0.005 \
+  --time 1242442967.447 \
+  --gw-time 1242442965.0 \
+  --model kilonova \
+  --out results/ \
+  --verbose
+
+# With different EM model
+gw-assoc \
+  --gw-file S250818k_bayestar.fits.gz \
+  --ra 192.42625 \
+  --dec 34.82472 \
+  --z 0.438 \
+  --time 1242442967.447 \
+  --model grb \
+  --out results/
+
+# Without redshift (spatial and temporal only)
+gw-assoc \
+  --gw-file S250818k_bayestar.fits.gz \
+  --ra 192.42625 \
+  --dec 34.82472 \
+  --time 1242442967.447 \
+  --out results/
+```
+
+#### Example 4: Batch Processing from File
+
+**Scenario:** Process multiple candidates from a CSV or JSON file.
+
+```python
+from gw_assoc import Association
+from gw_assoc.ingest import ingest_transient_list
+import json
+
+# 1. Load candidates from file
+candidates = ingest_transient_list('my_transients.csv')  # or .json
+
+# 2. Load GW event
+skymap_file = "S250818k_bayestar.fits.gz"
+gw_time = 1242442965.0
+
+# 3. Create association
+assoc = Association(skymap_file, {"gw_time": gw_time})
+
+# 4. Process all candidates
+rankings = assoc.rank_candidates(candidates)
+
+# 5. Save results
+results = []
+for ranking in rankings:
+    cand = ranking['candidate']
+    results.append({
+        "name": cand.name,
+        "ra": cand.ra,
+        "dec": cand.dec,
+        "z": cand.z,
+        "probability": ranking['probability'],
+        "posterior_odds": ranking['odds'],
+        "log_odds": ranking['log_odds'],
+        "I_omega": ranking['results']['I_omega'],
+        "I_dl": ranking['results']['I_dl'],
+        "I_t": ranking['results']['I_t']
+    })
+
+# Save to JSON
+with open('association_results.json', 'w') as f:
+    json.dump(results, f, indent=2)
+
+print(f"Processed {len(results)} candidates")
+print(f"Results saved to: association_results.json")
+```
+
+### Working with 3D Skymaps
+
+3D skymaps (with distance information) provide more accurate distance overlap calculations:
+
+```python
+from gw_assoc import Association
+
+# 3D skymaps automatically provide distance information
+assoc = Association("S250818k_bayestar.fits.gz", {
+    "ra": 192.42625,
+    "dec": 34.82472,
+    "z": 0.438,
+    "z_err": 0.005,
+    "time": 1242442967.447,
+    "gw_time": 1242442965.0
+})
+
+# The framework automatically detects 3D skymaps
+results = assoc.compute_odds()
+print(f"Distance overlap (I_DL): {results['I_dl']:.3e}")
+
+# For 2D skymaps, distance overlap will be 1.0 (no distance constraint)
+```
+
+### Time Format Conversions
+
+If you have times in different formats, convert them:
+
+```python
+from astropy.time import Time
+
+# Convert MJD to GPS
+mjd_time = 58630.5
+t = Time(mjd_time, format='mjd')
+gps_time = t.gps  # GPS seconds
+
+# Convert ISO format to GPS
+iso_time = "2024-01-15T12:34:56"
+t = Time(iso_time, format='iso')
+gps_time = t.gps
+
+# Convert GPS to MJD
+gps_time = 1242442967.447
+t = Time(gps_time, format='gps')
+mjd_time = t.mjd
+
+# Use in transient info
+transient_info = {
+    "ra": 192.42625,
+    "dec": 34.82472,
+    "time": gps_time,  # Use GPS time
+    "gw_time": gw_gps_time
+}
+```
+
+### Common Real-World Scenarios
+
+#### Scenario 1: GW Follow-up Campaign
+
+```python
+# After receiving a GW alert and conducting observations
+from gw_assoc import Association
+from gw_assoc.ingest import ingest_transient_list
+
+# 1. Download skymap from GraceDB (manual or automated)
+skymap_file = "S250818k_bayestar.fits.gz"
+
+# 2. Load candidates from your observation pipeline
+candidates = ingest_transient_list('observed_candidates.csv')
+
+# 3. Analyze associations
+assoc = Association(skymap_file, {"gw_time": gw_time})
+rankings = assoc.rank_candidates(candidates)
+
+# 4. Select top candidates for spectroscopy
+top_3 = rankings[:3]
+for candidate in top_3:
+    print(f"Priority target: {candidate['candidate'].name}")
+    print(f"  RA: {candidate['candidate'].ra}°, Dec: {candidate['candidate'].dec}°")
+    print(f"  P(Associated) = {candidate['probability']:.1%}")
+```
+
+#### Scenario 2: Retrospective Analysis
+
+```python
+# Analyzing historical events with known associations
+from gw_assoc import Association
+
+# GW170817-like analysis
+assoc = Association("GW170817_skymap.fits.gz", {
+    "name": "AT2017gfo",
+    "ra": 197.45,
+    "dec": -23.38,
+    "z": 0.0098,
+    "z_err": 0.0001,
+    "time": 1187008882.4,  # Kilonova detection time
+    "gw_time": 1187008882.43  # GW merger time
+})
+
+results = assoc.compute_odds(em_model='kilonova', prior_odds=1.0)
+print(f"GW170817-AT2017gfo association:")
+print(f"  P(Associated) = {results['confidence']:.1%}")
+print(f"  Posterior Odds = {results['posterior_odds']:.3e}")
+```
+
+#### Scenario 3: Missing Data Handling
+
+```python
+# Handle cases where some data is missing
+from gw_assoc import Association
+
+# No redshift available
+assoc1 = Association("skymap.fits.gz", {
+    "ra": 192.42625,
+    "dec": 34.82472,
+    "time": 1242442967.447
+    # No z: distance overlap will be 1.0
+})
+results1 = assoc1.compute_odds()
+print(f"Spatial + temporal only: P = {results1['confidence']:.1%}")
+
+# No time available
+assoc2 = Association("skymap.fits.gz", {
+    "ra": 192.42625,
+    "dec": 34.82472,
+    "z": 0.438
+    # No time: temporal overlap will be 1.0
+})
+results2 = assoc2.compute_odds()
+print(f"Spatial + distance only: P = {results2['confidence']:.1%}")
+
+# Position only
+assoc3 = Association("skymap.fits.gz", {
+    "ra": 192.42625,
+    "dec": 34.82472
+    # Spatial overlap only
+})
+results3 = assoc3.compute_odds()
+print(f"Spatial only: P = {results3['confidence']:.1%}")
+```
+
+### Tips for Real Data
+
+1. **GW Event Time**: Always get the GW event time from GraceDB for accurate temporal calculations
+2. **Redshift Quality**: Higher quality redshifts (smaller uncertainties) improve distance overlap calculations
+3. **3D Skymaps**: Prefer 3D skymaps (bayestar.fits.gz, bilby.fits.gz) over 2D for better distance constraints
+4. **EM Model Selection**: Choose the appropriate model:
+   - `kilonova`: Optical/NIR transients (hours to days)
+   - `grb`: Gamma-ray bursts (seconds)
+   - `afterglow`: GRB afterglows (days to weeks)
+5. **Prior Odds**: Adjust based on GW source type (BNS, NSBH, BBH)
+6. **Multiple Candidates**: Always rank multiple candidates to identify the most likely association
+
+### Troubleshooting
+
+**Issue: Skymap file not found**
+```python
+# Check if file exists
+from pathlib import Path
+if not Path("skymap.fits.gz").exists():
+    print("Download skymap from GraceDB first")
+```
+
+**Issue: Invalid time format**
+```python
+# Convert to GPS time
+from astropy.time import Time
+t = Time(your_time, format='your_format')
+gps_time = t.gps
+```
+
+**Issue: Missing distance information**
+```python
+# Check if skymap is 3D
+from gw_assoc.io.skymap import load_gw_skymap
+skymap_data = load_gw_skymap("skymap.fits.gz")
+if skymap_data.get('is_3d'):
+    print("3D skymap detected - distance overlap will be calculated")
+else:
+    print("2D skymap - distance overlap = 1.0")
+```
+
 ## Math
 
 This framework implements a Bayesian statistical framework for evaluating GW-EM associations based on the formalism developed by Ashton et al. (2018, 2021). The core calculation computes the posterior odds that an EM transient is associated with a GW event.

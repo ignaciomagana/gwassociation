@@ -139,6 +139,7 @@ This includes:
 This section provides step-by-step instructions for using the framework with real GW events and EM transients from actual observations.
 
 ### Getting Real GW Skymaps
+If you do not already have a `bayestar.fits.gz` or `bilby.fits.gz` file, follow the steps below:
 
 #### From GraceDB (Public Events)
 

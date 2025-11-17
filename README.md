@@ -140,6 +140,7 @@ This includes:
 This section provides step-by-step instructions for using the framework with real GW events and EM transients from actual observations.
 
 ### Getting Real GW Skymaps
+If you do not already have a `bayestar.fits.gz` or `bilby.fits.gz` file, follow the steps below:
 
 #### From GraceDB (Public Events)
 
@@ -167,9 +168,9 @@ This section provides step-by-step instructions for using the framework with rea
 
 ### Preparing EM Transient Data
 
-#### Option 1: Python Dictionary
+#### Option 1: Transient Dictionary
 
-The simplest way is to create a dictionary with transient information:
+The simplest way is to create a dictionary with transient information. In `gwPackage/test_real_gw.py`, fill out the dictionary with associated information. For example:
 
 ```python
 transient_info = {
@@ -184,11 +185,6 @@ transient_info = {
     "filter_band": "r"              # Filter band (optional)
 }
 ```
-
-**Time Formats:**
-- **GPS time**: Seconds since GPS epoch (recommended)
-- **MJD**: Modified Julian Date (will be converted automatically)
-- If `gw_time` is not provided, it will be estimated from the transient time
 
 #### Option 2: JSON File
 

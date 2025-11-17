@@ -1,7 +1,8 @@
 '''Galaxy density and rate calculations'''
 import numpy as np
-import healpy as hp
 from astropy.cosmology import FlatLambdaCDM
+
+from .utils import healpix as hp_utils
 
 cosmo = FlatLambdaCDM(H0=73, Om0=0.315)  # keep this if you want a default; or pass a cosmo around
 
@@ -90,7 +91,7 @@ def line_of_sight_pdf(ra_rad, dec_rad, dL_mpc, gw_map):
 
     theta = np.pi/2 - dec_rad
     phi   = ra_rad
-    ipix  = hp.ang2pix(nside, theta, phi, nest=nest)
+    ipix  = hp_utils.ang2pix(nside, theta, phi, nest=nest)
 
     mu      = float(gw_map['distmu'][ipix])
     sigma   = float(gw_map['distsigma'][ipix])

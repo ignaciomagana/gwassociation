@@ -9,40 +9,33 @@ import sys
 import json
 from pathlib import Path
 
+from gw_assoc.utils import healpix as hp_utils
+
 # ============================================================================
 # 1. GENERATE TEST DATA
 # ============================================================================
 
 def create_test_skymap(filename="test_skymap.fits", nside=64):
     """Create a simple test GW skymap"""
-    try:
-        import healpy as hp
-        
-        # Create a Gaussian blob centered at specific RA/Dec
-        npix = hp.nside2npix(nside)
-        skymap = np.zeros(npix)
-        
-        # Center at RA=120, Dec=-30
-        center_vec = hp.ang2vec(np.radians(90 + 30), np.radians(120))
-        
-        # Add Gaussian probability
-        for ipix in range(npix):
-            pix_vec = hp.pix2vec(nside, ipix)
-            angle = np.arccos(np.clip(np.dot(center_vec, pix_vec), -1, 1))
-            skymap[ipix] = np.exp(-0.5 * (angle / np.radians(10))**2)
-        
-        # Normalize
-        skymap = skymap / np.sum(skymap)
-        
-        # Save as FITS
-        hp.write_map(filename, skymap, overwrite=True)
-        print(f"✓ Created test skymap: {filename}")
-        return filename
-    except ImportError:
-        print("⚠ healpy not installed - creating dummy skymap file")
-        # Create empty file as placeholder
-        Path(filename).touch()
-        return filename
+    npix = hp_utils.nside2npix(nside)
+    skymap = np.zeros(npix)
+
+    # Center at RA=120, Dec=-30
+    center_vec = np.asarray(hp_utils.ang2vec(np.radians(90 + 30), np.radians(120))).reshape(3)
+
+    # Add Gaussian probability
+    for ipix in range(npix):
+        pix_vec = np.asarray(hp_utils.pix2vec(nside, ipix)).reshape(3)
+        angle = np.arccos(np.clip(np.dot(center_vec, pix_vec), -1, 1))
+        skymap[ipix] = np.exp(-0.5 * (angle / np.radians(10))**2)
+
+    # Normalize
+    skymap = skymap / np.sum(skymap)
+
+    # Save as FITS
+    hp_utils.write_map(filename, skymap, overwrite=True)
+    print(f"✓ Created test skymap: {filename}")
+    return filename
 
 def create_test_data():
     """Create all test data files"""

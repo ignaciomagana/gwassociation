@@ -1,10 +1,9 @@
-from .io import load_gw_skymap, GWEvent
-from .io.transient import Transient
-from .analysis import compute_posterior_odds
-from .plotting.skymap import plot_skymap
+from typing import Dict, Any, Optional
 
-# --- Add this near the top of association.py ---
-from typing import Dict, Any
+from .io import GWEvent
+from .io.transient import Transient
+from .analysis import compute_posterior_odds, compute_coincident_odds
+from .plotting.skymap import plot_skymap
 
 def _normalize_candidate_info(info: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -57,25 +56,45 @@ def _normalize_candidate_info(info: Dict[str, Any]) -> Dict[str, Any]:
 class Association:
     """High-level wrapper for evaluating GW-EM associations"""
 
-    def __init__(self, gw_file: str, transient_info: dict):
+    def __init__(
+        self,
+        gw_file: str,
+        transient_info: Optional[dict] = None,
+        secondary_skymap: Optional[str] = None,
+        secondary_event_time: Optional[float] = None,
+    ):
         """
         Initialize Association
         
         Parameters
         ----------
         gw_file : str
-            Path to GW skymap FITS file
-        transient_info : dict
-            Dictionary with transient information
-            Should contain: ra, dec, z (optional), time (optional)
-            Can also contain: gw_time for the GW event time
+            Path to GW skymap FITS file (primary event)
+        transient_info : dict, optional
+            Dictionary with transient information. Should contain ra, dec, z (optional),
+            and time (optional). Can also contain gw_time for the GW event time.
+            If omitted, you must provide `secondary_skymap`.
+        secondary_skymap : str, optional
+            Path to a secondary skymap (e.g., EM localization) for skymap-vs-skymap
+            coincidence calculations as described in
+            "Coincident Detection Significance in Multimessenger Astronomy".
+        secondary_event_time : float, optional
+            Event time for the secondary skymap (defaults to gw_time).
         """
+        if transient_info is None and secondary_skymap is None:
+            raise ValueError(
+                "Provide either transient_info for point-like associations or "
+                "secondary_skymap for skymap coincidence analysis."
+            )
+
+        transient_payload = dict(transient_info) if transient_info else {}
+
         # Extract GW event time if provided, otherwise use a default
-        gw_time = transient_info.pop('gw_time', None)
+        gw_time = transient_payload.pop('gw_time', None)
         if gw_time is None:
             # If no GW time provided, estimate from transient time
-            if 'time' in transient_info and transient_info['time'] is not None:
-                gw_time = transient_info['time'] - 86400  # Default: 1 day before transient
+            if 'time' in transient_payload and transient_payload['time'] is not None:
+                gw_time = transient_payload['time'] - 86400  # Default: 1 day before transient
             else:
                 gw_time = 0.0  # Fallback default
         
@@ -86,7 +105,16 @@ class Association:
         )
         
         # Create transient (without gw_time which isn't a Transient parameter)
-        self.transient = Transient(**transient_info)
+        self.transient = Transient(**transient_payload) if transient_payload else None
+        
+        # Secondary skymap (for skymap-vs-skymap coincidence)
+        self.secondary_event = None
+        if secondary_skymap:
+            secondary_time = secondary_event_time if secondary_event_time is not None else gw_time
+            self.secondary_event = GWEvent(
+                skymap_path=secondary_skymap,
+                event_time=secondary_time
+            )
         
         # Store GW time separately if needed
         self.gw_time = gw_time
@@ -113,6 +141,17 @@ class Association:
         if self.gw.skymap is None:
             self.gw.load_skymap()
         
+        if self.secondary_event is not None:
+            if self.secondary_event.skymap is None:
+                self.secondary_event.load_skymap()
+            return compute_coincident_odds(self.gw, self.secondary_event, **kwargs)
+        
+        if self.transient is None:
+            raise ValueError(
+                "No transient information available. Provide transient_info or "
+                "secondary_skymap when creating the Association."
+            )
+        
         return compute_posterior_odds(self.gw, self.transient, **kwargs)
 
     def plot_skymap(self, out_file: str = "skymap.png"):
@@ -120,6 +159,9 @@ class Association:
         # Make sure skymap is loaded
         if self.gw.skymap is None:
             self.gw.load_skymap()
+        
+        if self.transient is None:
+            raise ValueError("plot_skymap requires point-like transient information.")
             
         plot_skymap(self.gw, self.transient, out_file)
         

@@ -56,6 +56,7 @@ rankings = assoc.rank_candidates(candidates)
 - **Publication-Quality Plots**: Generate figures for papers and presentations
 - **Command-Line Interface**: Easy-to-use CLI for quick analysis
 - **3D Skymap Support**: Handles both 2D and 3D GW skymaps with distance information
+- **Dual-Skymap Coincidence**: Compare two skymaps (GW vs EM) and compute radial overlap following *Coincident Detection Significance in Multimessenger Astronomy*
 
 ## Installation
 
@@ -456,6 +457,40 @@ with open('association_results.json', 'w') as f:
 print(f"Processed {len(results)} candidates")
 print(f"Results saved to: association_results.json")
 ```
+
+#### Example 5: Skymap vs Skymap Coincidence (Radial Distance)
+
+**Scenario:** Compare two full skymaps (e.g., GW and EM localization) and evaluate their coincident detection significance following *Coincident Detection Significance in Multimessenger Astronomy*.
+
+```bash
+gw-assoc \
+  --gw-file S250818k_bayestar.fits.gz \
+  --secondary-skymap em_localization.fits.gz \
+  --secondary-time 1242443000.0 \
+  --out results/ \
+  --verbose
+```
+
+```python
+from gw_assoc import Association
+
+assoc = Association(
+    "S250818k_bayestar.fits.gz",
+    transient_info=None,
+    secondary_skymap="em_localization.fits.gz",
+    secondary_event_time=1242443000.0
+)
+
+results = assoc.compute_odds()
+print(f"Spatial overlap (I_Ω) = {results['I_omega']:.3e}")
+print(f"Radial overlap (I_DL) = {results['I_dl']:.3e}")
+print(f"P(Associated) = {results['confidence']:.1%}")
+```
+
+In this mode:
+- The framework loads both skymaps, validates that they share the same NSIDE, and computes angular overlap.
+- Radial (distance) overlap is computed using the joint line-of-sight integral described in the paper, combining per-pixel distance posteriors.
+- Temporal overlap defaults to 1, but you can pass `I_t` manually if the secondary skymap has an associated time window.
 
 ### Working with 3D Skymaps
 

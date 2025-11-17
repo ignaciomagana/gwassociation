@@ -1,18 +1,10 @@
 # src/gw_assoc/stats.py
 from __future__ import annotations
 import numpy as np
-import healpy as hp
 from typing import Literal
 
 from .density import line_of_sight_pdf
-
-IdL = IdL_at_host(
-    ra_rad=host_ra_rad,
-    dec_rad=host_dec_rad,
-    z_host=host_z,
-    cosmo=cosmo,
-    los_pdf_fn=lambda ra,dec,dL: line_of_sight_pdf(ra, dec, dL, gw_map)  # pass your loaded map here
-)
+from .utils import healpix as hp_utils
 
 # --- Distance-prior (match notebook): p0(dL) ∝ dL^2 on [1, 1e4] Mpc, normalized ---
 DL_MIN_MPC = 1.0
@@ -29,9 +21,9 @@ def prior_dl2(dL, dmin=DL_MIN_MPC, dmax=DL_MAX_MPC):
 
 def _gaussian_pos_pdf(ra0: float, dec0: float, sigma: float, nside: int) -> np.ndarray:
     """Circular Gaussian on the sphere (small-angle approx) centered at (ra0, dec0)."""
-    npix = hp.nside2npix(nside)
+    npix = hp_utils.nside2npix(nside)
     pix = np.arange(npix)
-    theta, phi = hp.pix2ang(nside, pix)
+    theta, phi = hp_utils.pix2ang(nside, pix)
     ra = phi
     dec = np.pi/2 - theta
     cosd = np.sin(dec0)*np.sin(dec) + np.cos(dec0)*np.cos(dec)*np.cos(ra - ra0)
@@ -97,7 +89,7 @@ def joint_overlap_I3D(gw_density,
     I_3D ≈ ∑_pix ∫ dDL [ pGW(DL,Ω_pix) pEM(DL) pEM(Ω_pix) / prior(Ω_pix) ].
     EM sky is a Gaussian at (ra,dec) with width em.sigma_pos.
     """
-    npix = hp.nside2npix(gw_density.nside)
+    npix = hp_utils.nside2npix(gw_density.nside)
     pix = np.arange(npix)
     pEM_Omega = _gaussian_pos_pdf(em.ra, em.dec, max(em.sigma_pos, 1e-6), gw_density.nside)
     prior = prior_Omega / (prior_Omega.sum() + 1e-300)
@@ -137,8 +129,8 @@ def IOmega_point(ra_rad, dec_rad, gw_prob, nside, nest=True):
     """
     theta = np.pi/2 - dec_rad
     phi = ra_rad
-    ipix = hp.ang2pix(nside, theta, phi, nest=nest)
-    pix_area = hp.nside2pixarea(nside)      # steradian
+    ipix = hp_utils.ang2pix(nside, theta, phi, nest=nest)
+    pix_area = hp_utils.nside2pixarea(nside)      # steradian
     p_density = gw_prob[ipix] / pix_area    # per steradian
     sky_prior = 1.0 / (4.0 * np.pi)
     return float(p_density / sky_prior)
@@ -148,7 +140,7 @@ def IOmega_maps(gw_prob, ext_prob, nside):
     Map–map overlap with area weighting and proper normalization.
     Both inputs should be probabilities summing to 1 over the sphere.
     """
-    area = hp.nside2pixarea(nside)  # steradian
+    area = hp_utils.nside2pixarea(nside)  # steradian
     num = float(np.sum(gw_prob * ext_prob) * area)                   # ∫ p_gw p_ext dΩ
     den = float((np.sum(gw_prob) * area) * (np.sum(ext_prob) * area))# (=1*1 if normalized)
     return num / (den if den > 1e-300 else 1e-300)

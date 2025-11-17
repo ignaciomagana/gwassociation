@@ -16,11 +16,12 @@ def test_IOmega_uniform_expectation_is_one(gwevent, N=2000, tol=0.1):
     assert abs(mean - 1.0) < tol  # law of large numbers
 
 def test_IOmega_high_pixel_is_large(gwevent):
+    from gw_assoc.utils import healpix as hp_utils
+
     sm = gwevent.skymap
     ip = np.argmax(sm["prob"])
     # invert pix->ang to pick that pixel’s center
-    import healpy as hp
-    theta, phi = hp.pix2ang(sm["nside"], ip, nest=sm.get("nest", True))
+    theta, phi = hp_utils.pix2ang(sm["nside"], ip, nest=sm.get("nest", True))
     ra, dec = phi, (np.pi/2 - theta)
     val = IOmega_point(ra, dec, sm["prob"], sm["nside"], nest=sm.get("nest", True))
     assert val > 1.0

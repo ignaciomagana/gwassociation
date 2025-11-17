@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
-import healpy as hp
 import numpy as np
+
+from ..utils import healpix as hp_utils
 
 def plot_skymap(gw, transient, out_file="skymap.png"):
     '''
@@ -23,8 +24,8 @@ def plot_skymap(gw, transient, out_file="skymap.png"):
                 skymap_data = None
         
         if skymap_data is not None:
-            # Plot with healpy
-            hp.mollview(skymap_data, 
+            # Plot with healpy (or raise informative error if unavailable)
+            hp_utils.mollview(skymap_data, 
                        title="GW Skymap with EM Candidate",
                        unit="Probability",
                        fig=fig.number,
@@ -32,13 +33,13 @@ def plot_skymap(gw, transient, out_file="skymap.png"):
             
             # Add transient position
             if transient is not None and hasattr(transient, 'ra') and hasattr(transient, 'dec'):
-                hp.projscatter(transient.ra, transient.dec,
+                hp_utils.projscatter(transient.ra, transient.dec,
                               lonlat=True, marker='*', s=500, 
                               color='blue', edgecolor='white', linewidth=2,
                               label=f'EM Transient')
                 
             # Add graticule
-            hp.graticule(dpar=30, dmer=30, alpha=0.3)
+            hp_utils.graticule(dpar=30, dmer=30, alpha=0.3)
             
         else:
             # Fallback to simple plot

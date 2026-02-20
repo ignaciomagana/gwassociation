@@ -16,7 +16,7 @@ Given a GW skymap and one or more EM candidates, `gw-assoc` computes:
 
 From PyPI:
 
-pip install gw-assocFrom source (development/editable mode):
+pip install gw-assoc
 
 git clone https://github.com/<your-username>/gw-assoc.git
 cd gw-assoc/gwPackage

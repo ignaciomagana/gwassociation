@@ -1,7 +1,8 @@
 """Sky-map plotting helper for GW localizations and point-like EM candidates."""
 
+import warnings
+
 import matplotlib.pyplot as plt
-import numpy as np
 
 from ..utils import healpix as hp_utils
 
@@ -56,7 +57,11 @@ def plot_skymap(gw, transient, out_file="skymap.png"):
                 ax.grid(True, alpha=0.3)
             
     except Exception as e:
-        print(f"Error in skymap plotting: {e}")
+        warnings.warn(
+            f"Detailed skymap plot unavailable ({e}); using basic fallback plot. "
+            "Install the 'healpy' extra for full mollview rendering.",
+            RuntimeWarning,
+        )
         # Basic fallback plot
         ax = fig.add_subplot(111)
         ax.set_title("Skymap (error in plotting)")

@@ -5,7 +5,6 @@ point-like transient position or a secondary sky map, computes odds terms, and
 writes JSON and optional diagnostic plot products.
 """
 
-import os
 import json
 import pathlib
 import click

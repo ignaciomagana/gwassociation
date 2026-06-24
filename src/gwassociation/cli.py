@@ -217,7 +217,25 @@ def screen(outdir, skymap_dir, time_window, far_threshold, bbh_threshold,
             f"  {row['rank']:>2}. {row['event1']:<12} {row['event2']:<12} "
             f"O={row['overlap']:>10.3f}{pv_str}"
         )
-    click.echo(f"\nData products written to {outdir}/")
+
+    # List the files actually written into the output directory so the user
+    # knows exactly what to open (reused inputs living elsewhere are excluded).
+    out_path = pathlib.Path(outdir).resolve()
+    outputs = summary.get("outputs", {})
+    candidates = [outputs.get("top_pairs_csv"), outputs.get("overlaps_json")]
+    candidates += list((outputs.get("figures") or {}).values())
+    candidates.append(str(out_path / "summary.json"))
+    written = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = pathlib.Path(candidate).resolve()
+        if path.parent == out_path and path.exists() and path.name not in written:
+            written.append(path.name)
+
+    click.echo(f"\nData products written to {outdir}/:")
+    for name in written:
+        click.echo(f"  {name}")
 
 
 if __name__ == "__main__":

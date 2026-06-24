@@ -1,8 +1,11 @@
-"""Command-line interface for running GW--EM association calculations.
+"""Command-line interface for ``gwassociation``.
 
-The ``gwassociation`` console script accepts a primary sky map and either a
-point-like transient position or a secondary sky map, computes odds terms, and
-writes JSON and optional diagnostic plot products.
+The console script is a command group with two sub-commands:
+
+* ``gwassociation odds`` -- GW--EM association: take a primary sky map and either
+  a point-like transient or a secondary sky map and compute posterior odds.
+* ``gwassociation screen`` -- GW--GW lensing screening: query GraceDB, download
+  sky maps, compute all-pairs overlap integrals, and rank high-overlap pairs.
 """
 
 import json
@@ -10,7 +13,14 @@ import pathlib
 import click
 import numpy as np
 
-@click.command()
+
+@click.group()
+@click.version_option(package_name="gwassociation", message="%(version)s")
+def main():
+    """gwassociation: GW--EM association and GW--GW overlap screening."""
+
+
+@main.command()
 @click.option("--gw-file", type=click.Path(exists=True, dir_okay=False), required=True,
               help="Path to primary GW skymap file (FITS).")
 @click.option("--secondary-skymap", type=click.Path(exists=True, dir_okay=False), default=None,
@@ -29,7 +39,7 @@ import numpy as np
 @click.option("--out", "outdir", type=click.Path(file_okay=False), default="out",
               help="Output directory for results.")
 @click.option("--verbose", is_flag=True, help="Verbose output.")
-def main(gw_file, secondary_skymap, ra, dec, z, z_err, ttime,
+def odds(gw_file, secondary_skymap, ra, dec, z, z_err, ttime,
          secondary_time, gw_time, model, outdir, verbose):
     """Run GW-EM association analysis"""
     
@@ -156,6 +166,59 @@ def main(gw_file, secondary_skymap, ra, dec, z, z_err, ttime,
     if verbose:
         print(f"Saved results: {out/'results.json'}")
         print("\n=== Analysis Complete ===")
+
+
+@main.command()
+@click.option("--out", "outdir", type=click.Path(file_okay=False), default="screen_out",
+              help="Output directory for data products and figures.")
+@click.option("--skymap-dir", type=click.Path(file_okay=False), default=None,
+              help="Sky-map download cache (default: <out>/skymaps).")
+@click.option("--time-window", default="32 months ago .. now",
+              help="GraceDB 'created:' window for the event query.")
+@click.option("--far-threshold", type=float, default=2.3e-5,
+              help="Keep events with false alarm rate below this (events/sec).")
+@click.option("--bbh-threshold", type=float, default=0.1,
+              help="Keep events with p_astro(BBH) above this. Use -1 to disable BBH filtering.")
+@click.option("--workers", type=int, default=1,
+              help="Worker processes for the all-pairs overlap computation.")
+@click.option("--top-n", type=int, default=30, help="Number of ranked pairs to write to CSV.")
+@click.option("--min-days-apart", type=int, default=0,
+              help="Drop pairs fewer than N days apart (use 1 to exclude same-day duplicates).")
+@click.option("--plot-pairs", type=int, default=1,
+              help="Render joint sky-map plots for this many top-ranked pairs.")
+@click.option("--reuse-overlaps", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="Skip query/download/compute and re-rank/re-plot from this overlaps JSON.")
+def screen(outdir, skymap_dir, time_window, far_threshold, bbh_threshold,
+           workers, top_n, min_days_apart, plot_pairs, reuse_overlaps):
+    """Screen GW event pairs for high sky-map overlap (lensing candidates)."""
+    # Imported here so the lightweight 'odds' path does not require the
+    # screening extra (ligo.skymap, healpy, ligo-gracedb, ...).
+    from gwassociation.screening.run import run_screening
+
+    summary = run_screening(
+        out_dir=outdir,
+        skymap_dir=skymap_dir,
+        time_window=time_window,
+        far_threshold=far_threshold,
+        bbh_threshold=None if bbh_threshold is not None and bbh_threshold < 0 else bbh_threshold,
+        workers=workers,
+        top_n=top_n,
+        min_days_apart=min_days_apart,
+        n_plot_pairs=plot_pairs,
+        reuse_overlaps=reuse_overlaps,
+    )
+
+    top = summary["top_pairs"]
+    click.echo("\nTop pairs by overlap:")
+    for row in top[:10]:
+        pv = row.get("pvalue")
+        pv_str = f"  p={pv:.2e}" if pv is not None and pv == pv else ""
+        click.echo(
+            f"  {row['rank']:>2}. {row['event1']:<12} {row['event2']:<12} "
+            f"O={row['overlap']:>10.3f}{pv_str}"
+        )
+    click.echo(f"\nData products written to {outdir}/")
+
 
 if __name__ == "__main__":
     main()

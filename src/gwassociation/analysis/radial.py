@@ -53,6 +53,20 @@ class RadialOverlap:
         except ValueError:
             return 1.0
 
+        # Pixels with no distance information store distmu = inf / distnorm = 0
+        # in LIGO 3D skymaps. Without masking, inf - inf = nan and (since those
+        # pixels still enter the weighted sum) the whole result becomes nan.
+        # Such pixels carry no distance information, so they contribute zero.
+        valid = (
+            np.isfinite(mu1) & np.isfinite(mu2)
+            & np.isfinite(sigma1) & np.isfinite(sigma2)
+            & (norm1 > 0) & (norm2 > 0)
+        )
+        mu1 = np.where(valid, mu1, 0.0)
+        mu2 = np.where(valid, mu2, 0.0)
+        norm1 = np.where(valid, norm1, 0.0)
+        norm2 = np.where(valid, norm2, 0.0)
+
         variance = sigma1 ** 2 + sigma2 ** 2 + 1e-12
         gaussian_overlap = (
             1.0 / np.sqrt(2.0 * np.pi * variance)
@@ -63,7 +77,7 @@ class RadialOverlap:
         prior = prior_dl2(mu_bar, self.dmin, self.dmax)
         prior = np.clip(prior, 1e-30, None)
 
-        radial_factor = los_overlap / prior
+        radial_factor = np.where(valid, los_overlap / prior, 0.0)
         return float(np.sum(weights * radial_factor))
 
     @staticmethod
